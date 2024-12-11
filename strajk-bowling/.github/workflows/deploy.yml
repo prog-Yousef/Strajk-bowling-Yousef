@@ -1,0 +1,85 @@
+name: run tests and deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Remove node_modules and package-lock.json
+        run: |
+          rm -rf node_modules
+          rm -f package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm run test
+
+        check-coverage:
+          runs-on: ubuntu-latest
+          needs: test
+
+          steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Check test coverage
+            run:  |
+          if [ ! -f ./coverage/coverage-summary.json ]; then
+            echo "Coverage report not found!"
+            exit 1
+          fi
+
+          echo "Coverage report found"
+
+          COVERAGE=$(cat ./coverage/coverage-summary.json | jq .total.lines.pct)
+          echo "Test coverage is ${COVERAGE}%"
+
+          if (( $(echo "$COVERAGE < 90" | bc -l) )); then
+            echo "Test coverage is below 90%, cannot proceed."
+            exit 1
+          fi
+
+
+    deploy:
+      runs-on: ubuntu-latest
+      needs: check-coverage
+      permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+      steps:
+
+        - uses: actions/checkout@v4
+        - name: install modules
+          run: npm install
+
+        - name: Build dist
+          run: npm run build
+
+        - name: Setup Pages
+          uses: actions/configure-pages@v3
+
+          - name: Upload dist folder
+            uses: actions/upload-pages-artifact@v1
+            with:
+              path: ./dist
+
+              - name: Deploy to GitHub Pages
+                id: deployment
+                uses: actions/deploy-pages@v1 
