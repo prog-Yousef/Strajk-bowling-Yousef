@@ -1,4 +1,4 @@
-name: CI/CD
+name: run tests and deploy
 
 on:
   push:
@@ -8,20 +8,27 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
+        with:
+          node-version: 18
 
-      - name: Install dependecies
+      - name: Remove node_modules and package-lock.json
+        run: |
+          rm -rf node_modules
+          rm -f package-lock.json
+
+      - name: Install dependencies
         run: npm install
 
       - name: Run tests
-        run: npm test
-
+        run: npm run test
+        
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -38,18 +45,20 @@ jobs:
       - name: Check test coverage
         run: |
           if [ ! -f ./coverage/coverage-summary.json ]; then
-          echo "Coverage report not found!"
-          exit 1
+            echo "Coverage report not found!"
+            exit 1
           fi
 
           echo "Coverage report found"
 
           COVERAGE=$(cat ./coverage/coverage-summary.json | jq .total.lines.pct)
-          echo "Test coverage is ${COVERAGE}%"
+          echo "Test coverage is ${COVERAGE}%" 
 
           if (( $(echo "$COVERAGE < 90" | bc -l) )); then
-          echo "Test coverage is below 90%, cannot deploy."
-          exit 1
+            echo "Coverage (${COVERAGE}%) is below 90%"
+            exit 1
+          else
+            echo "Coverage (${COVERAGE}%) is above 90%, check passed"
           fi
 
   deploy:
@@ -61,21 +70,23 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Install modules
-        run: cd strajk-bowling && npm install
+        run: npm install
 
       - name: Build dist
-        run: cd strajk-bowling && npm run build
+        run: npm run build
 
-      - name: Setup pages
+      - name: Setup Pages
         uses: actions/configure-pages@v3
 
       - name: Upload dist folder
         uses: actions/upload-pages-artifact@v1
         with:
-          path: "./strajk-bowling/dist"
+          path: ./dist
 
-      - name: Deploy to Github Pages
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v1
