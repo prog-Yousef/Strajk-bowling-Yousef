@@ -139,6 +139,8 @@ describe("Booking", () => {
     expect(updatedShoeInputs.length).toBe(players); // Expect 2 shoe inputs again
   });
 
+
+  
   it("allows changing shoe sizes", () => {
     fireEvent.click(ShoeButton);
     const shoeInput = screen.getByLabelText(/Shoe size \/ person/);
