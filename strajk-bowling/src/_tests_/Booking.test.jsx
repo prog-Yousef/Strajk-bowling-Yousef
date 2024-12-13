@@ -15,7 +15,7 @@ describe("Booking", () => {
     bookingButton = screen.getByText("strIIIIIike!"); // Replace with correct button text
     lanesInput = screen.getByLabelText("Number of lanes");
     peopleInput = screen.getByPlaceholderText("Number of awesome bowlers");
-    ShoeButton = screen.getByRole("+"); // Ensure this is the correct role
+    ShoeButton = screen.getByRole("button", { name: "+" }); // Corrected role selection
     dateInput = screen.getByPlaceholderText("Date");
   });
 
@@ -42,7 +42,7 @@ describe("Booking", () => {
 
     // Fill in everything but leave out shoe size
     fireEvent.change(lanesInput, { target: { value: "1" } });
-    fireEvent.click(ShoeButton); // Korrekt knapp
+    fireEvent.click(ShoeButton);
     fireEvent.click(bookingButton);
     expect(screen.getByText("Alla skor måste vara ifyllda")).toBeInTheDocument();
   });
@@ -60,8 +60,8 @@ describe("Booking", () => {
     fireEvent.change(timeInput, { target: { value: "11:00" } });
     fireEvent.change(lanesInput, { target: { value: "1" } });
     fireEvent.change(peopleInput, { target: { value: "2" } });
-    fireEvent.click(ShoeButton); // Korrekt knapp
-    fireEvent.click(ShoeButton); // Korrekt knapp
+    fireEvent.click(ShoeButton);
+    fireEvent.click(ShoeButton);
   
     const shoeSizeInputs = screen.getAllByLabelText(/Shoe size \/ person/);
     for (let i = 0; i < shoeSizeInputs.length; i++) {
@@ -79,17 +79,17 @@ describe("Booking", () => {
     }, { timeout: 1000 }); // Timeout after 1000ms
   });
 
-  it("should show error when too there are more player per lane", async () => {
-   
+  it("should show error when there are more players than available lanes", async () => {
+    const players = 5;
 
-
-    fireEvent.change(dateInput, { target: { value: "2024-12-12" } });
-    fireEvent.change(timeInput, { target: { value: "12:00" } });
-    fireEvent.change(peopleInput, { target: { value: "6" } });
+    fireEvent.change(dateInput, { target: { value: "2024-01-01" } });
+    fireEvent.change(timeInput, { target: { value: "11:00" } });
+    fireEvent.change(peopleInput, { target: { value: String(players) } });
     fireEvent.change(lanesInput, { target: { value: "1" } });
-    // Use Array.from and forEach instead of the for loop
+    
+    // Use Array.from and forEach
     Array.from({ length: players }).forEach(() => {
-      fireEvent.click(addShoeButton);
+      fireEvent.click(ShoeButton);
     });
   
     const shoeInputs = screen.getAllByLabelText(/Shoe size \/ person/);
@@ -97,7 +97,7 @@ describe("Booking", () => {
       fireEvent.change(input, { target: { value: "42" } });
     });
   
-    fireEvent.click(bookButton);
+    fireEvent.click(bookingButton);
   
     await waitFor(() => {
       expect(
@@ -105,7 +105,85 @@ describe("Booking", () => {
       ).toBeInTheDocument();
     });
   });
+
+  it("should allow removing and adding shoes", async () => {
+    const players = 2;
   
+    // Set the number of players
+    fireEvent.change(peopleInput, { target: { value: String(players) } });
+  
+    // Add shoes for all players
+    Array.from({ length: players }).forEach(() => {
+      fireEvent.click(ShoeButton);
+    });
+  
+    // Get the shoe inputs and check that there are 2 inputs
+    let shoeInputs = screen.getAllByLabelText(/Shoe size \/ person/);
+    expect(shoeInputs).toHaveLength(2);
+  
+    // Remove one shoe input (assuming "-" button exists)
+    const removeButtons = screen.getAllByText("-");
+    fireEvent.click(removeButtons[0]);
+  
+    // After removal, verify the number of shoe inputs is 1
+    shoeInputs = screen.getAllByLabelText(/Shoe size \/ person/);
+    expect(shoeInputs).toHaveLength(1);
+  
+    // Add shoe size inputs for the remaining players
+    shoeInputs.forEach((input) => {
+      fireEvent.change(input, { target: { value: "42" } });
+    });
+  
+    // Check if the shoe inputs length is correct after actions
+    const updatedShoeInputs = screen.getAllByLabelText(/Shoe size \/ person/);
+    expect(updatedShoeInputs.length).toBe(players); // Expect 2 shoe inputs again
+  });
 
+  it("allows changing shoe sizes", () => {
+    fireEvent.click(ShoeButton);
+    const shoeInput = screen.getByLabelText(/Shoe size \/ person/);
 
+    fireEvent.change(shoeInput, { target: { value: "42" } });
+    expect(shoeInput.value).toBe("42");
+
+    fireEvent.change(shoeInput, { target: { value: "41" } });
+    expect(shoeInput.value).toBe("41");
+  });
+
+  it("should show error when the player shoes do not match the number of players", async () => {
+    fireEvent.change(peopleInput, { target: { value: "2" } });
+    fireEvent.change(lanesInput, { target: { value: "1" } });
+    fireEvent.change(dateInput, { target: { value: "2023-01-01" } });
+    fireEvent.change(timeInput, { target: { value: "11:00" } });
+
+    // Only add one shoe for two players
+    fireEvent.click(ShoeButton);
+    const shoeInput = screen.getByLabelText(/Shoe size \/ person/);
+    fireEvent.change(shoeInput, { target: { value: "42" } });
+
+    fireEvent.click(bookingButton);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Antalet skor måste stämma överens med antalet spelare")
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("should show error when not all shoes are filled", async () => {
+    fireEvent.change(dateInput, { target: { value: "2023-01-01" } });
+    fireEvent.change(timeInput, { target: { value: "11:00" } });
+    fireEvent.change(peopleInput, { target: { value: "2" } });
+    fireEvent.change(lanesInput, { target: { value: "1" } });
+
+    // Add shoes but don't fill in sizes
+    fireEvent.click(ShoeButton);
+    fireEvent.click(ShoeButton);
+
+    fireEvent.click(bookingButton);
+
+    expect(
+      screen.getByText("Alla skor måste vara ifyllda")
+    ).toBeInTheDocument();
+  });
 });
